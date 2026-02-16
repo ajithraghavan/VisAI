@@ -1,0 +1,16 @@
+# Ignore everything
+*
+
+# Keep these files/directories
+!.gitignore
+!app.py
+!CNN_LSTM.py
+!GRU_With_Attention.py
+!model.py
+!index.html
+!requirements.txt
+!README.md
+!checkpoints/
+!checkpoints/**
+!dataset/
+!dataset/**
