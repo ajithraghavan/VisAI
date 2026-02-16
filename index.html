@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>✨ விசை : VisaAI</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 2rem;
+            background: linear-gradient(180deg, #e0e7ff 0%, #f5f5f5 100%);
+            min-height: 100vh;
+        }
+
+        h1 {
+            text-align: center;
+            color: #1e293b;
+            font-size: 1.75rem;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+        }
+
+        .container {
+            background: white;
+            padding: 2.5rem;
+            border-radius: 16px;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+        }
+
+        #editor {
+            width: 100%;
+            min-height: 450px;
+            padding: 24px;
+            font-size: 1.5rem;
+            line-height: 2;
+            border: none;
+            border-radius: 12px;
+            outline: none;
+            resize: none;
+            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+            box-shadow: inset 0 2px 8px rgba(0,0,0,0.06);
+            transition: box-shadow 0.3s, background 0.3s;
+        }
+
+        #editor:focus {
+            background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+            box-shadow: inset 0 2px 12px rgba(74, 144, 217, 0.1);
+        }
+
+        #editor::placeholder {
+            color: #94a3b8;
+        }
+
+        .hint {
+            text-align: center;
+            color: #94a3b8;
+            font-size: 0.85rem;
+            margin-top: 1rem;
+            margin-bottom: 0;
+        }
+
+        .status {
+            text-align: center;
+            margin-top: 1rem;
+            font-size: 0.9rem;
+            color: #666;
+        }
+
+        .status.connected {
+            color: #16a34a;
+        }
+
+        .status.disconnected {
+            color: #dc2626;
+        }
+
+        .clear-btn {
+            display: block;
+            margin: 1.5rem auto 0;
+            padding: 10px 24px;
+            font-size: 0.9rem;
+            background: transparent;
+            color: #64748b;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .clear-btn:hover {
+            background: #f1f5f9;
+            border-color: #cbd5e1;
+            color: #475569;
+        }
+
+        .toolbar {
+            display: flex;
+            justify-content: flex-end;
+            margin-bottom: 0.5rem;
+        }
+
+        .copy-btn {
+            padding: 8px 16px;
+            font-size: 0.85rem;
+            background: #4a90d9;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .copy-btn:hover {
+            background: #357abd;
+        }
+
+        .copy-btn.copied {
+            background: #16a34a;
+        }
+    </style>
+</head>
+<body>
+    <h1>✨ விசை : VisaAI</h1>
+
+    <div class="container">
+        <div class="toolbar">
+            <button class="copy-btn" onclick="copyText()">Copy</button>
+        </div>
+        <textarea
+            id="editor"
+            placeholder="Start typing in Thanglish....."
+            autofocus
+        ></textarea>
+
+        <p class="hint">Type a word and press SPACE or ENTER to translate</p>
+
+        <button class="clear-btn" onclick="clearEditor()">Clear</button>
+
+        <div id="status" class="status">Checking API connection...</div>
+    </div>
+
+    <script>
+        const API_BASE = "http://localhost:8000";
+
+        async function checkHealth() {
+            const statusEl = document.getElementById("status");
+            try {
+                const response = await fetch(`${API_BASE}/health`);
+                const data = await response.json();
+                if (data.status === "ok" && data.model_loaded) {
+                    statusEl.textContent = "API Connected & Model Loaded";
+                    statusEl.className = "status connected";
+                } else {
+                    statusEl.textContent = "API Connected but Model not loaded";
+                    statusEl.className = "status disconnected";
+                }
+            } catch (error) {
+                statusEl.textContent = "Cannot connect to API - Make sure server is running";
+                statusEl.className = "status disconnected";
+            }
+        }
+
+        async function translateLastWord(separator) {
+            const textarea = document.getElementById("editor");
+            const text = textarea.value;
+
+            const lastSpaceIndex = Math.max(text.lastIndexOf(" "), text.lastIndexOf("\n"));
+            const lastWord = lastSpaceIndex === -1 ? text : text.substring(lastSpaceIndex + 1);
+
+            if (!lastWord.trim()) {
+                textarea.value += separator;
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/translate`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ text: lastWord })
+                });
+
+                if (!response.ok) {
+                    textarea.value += separator;
+                    return;
+                }
+
+                const data = await response.json();
+                const tamil = data.translations?.[0]?.tamil || lastWord;
+                const prefix = lastSpaceIndex === -1 ? "" : text.substring(0, lastSpaceIndex + 1);
+                textarea.value = prefix + tamil + separator;
+            } catch (error) {
+                textarea.value += separator;
+            }
+        }
+
+        function clearEditor() {
+            document.getElementById("editor").value = "";
+            document.getElementById("editor").focus();
+        }
+
+        function copyText() {
+            const textarea = document.getElementById("editor");
+            const btn = document.querySelector(".copy-btn");
+            navigator.clipboard.writeText(textarea.value);
+            btn.textContent = "Copied!";
+            btn.classList.add("copied");
+            setTimeout(() => {
+                btn.textContent = "Copy";
+                btn.classList.remove("copied");
+            }, 1500);
+        }
+
+        document.getElementById("editor").addEventListener("keydown", async (e) => {
+            if (e.key === " " || e.keyCode === 32) {
+                e.preventDefault();
+                await translateLastWord(" ");
+            } else if (e.key === "Enter" || e.keyCode === 13) {
+                e.preventDefault();
+                await translateLastWord("\n");
+            }
+        });
+
+        checkHealth();
+    </script>
+</body>
+</html>
